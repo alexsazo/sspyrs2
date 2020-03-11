@@ -1,5 +1,10 @@
-SSPYRS
+SSPYRS2
 ======
+Take SSPYRS from jknix/sspyrs and add support for:
+    1. Download reports with parameters
+    2. Download PDF reports.
+    
+All the other things are the same.
 
 The SSPYRS (SQL Server Python Reporting Services) library is a lightweight interface for interacting with and retrieving data from SSRS reports. The core functionality of the library is straightforward. Perform authentication to an SSRS server, initialize a session, and then retrieve the report data from that session. Report data can be interacted with via raw XML, but has predefined methods to organize it into Pandas DataFrame objects.
 
