@@ -1,13 +1,13 @@
+import bs4
+
 class report(object):
     """Create a report object with baseline attributes
-
     """
 
     # add option to export to different formats
 
     def __init__(self, link, username, password, parameters=None):
         """Iniates a report object
-
         Parameters
         ----------
         link : str
@@ -23,6 +23,9 @@ class report(object):
         self.username = username
         self.password = password
         self.reportname = ''
+        self.session = None
+        self.post_data = {}
+        
         if parameters is not None and type(parameters) != dict:
             raise ValueError('Invalid parameters')
         else:
@@ -30,7 +33,6 @@ class report(object):
 
         def exportlink(link, username, password, parameters):
             """Generate a link to a report session
-
             Returns
             -------
             str
@@ -52,37 +54,50 @@ class report(object):
 
                 return linkstring
 
-            link_param = addparams(link, parameters)
+            self.link_param = addparams(link, parameters)
 
-            linkbase = link_param[:re.search('/report', link_param.lower()).start(0) + 1]
+            self.linkbase = self.link_param[:re.search('/report', self.link_param.lower()).start(0) + 1]
 
-            session = requests.session()
-            session.auth = HttpNtlmAuth(username,
+            self.session = requests.session()
+            self.session.auth = HttpNtlmAuth(username,
                                         password,
-                                        session)
+                                        self.session)
 
-            pg = session.get(link_param)
+            if self.parameters:
+                pg = self.post_to_get_page()
+            else:
+                pg = self.session.get(self.link_param)
             pg_text = pg.text
             pg_text_split = pg_text.split('\n')
 
             outputs = [s.replace('\t', '') for s in pg_text_split if 'exportReport(' in s]
             outputs = [parse(s)['a']['#text'] for s in outputs]
 
-            if 'XML file with report data' in outputs:
+            # Preferimos la descarga por PDF SIEMPRE
+            if 'Archivo XML con datos de informe' in outputs and 'PDF' not in outputs:
                 relpage = [s for s in pg_text_split if 'ExportUrlBase' in s][0]
                 relpage = relpage.replace('\\u0026', '&')
                 linkstart = re.search('ExportUrlBase', relpage).start(0) + 17
                 linkend = re.search('FixedTableId', relpage).start(0) - 3
                 exportlink = relpage[linkstart:linkend]
-                newlink = linkbase + exportlink + 'XML'
+                newlink = self.linkbase + exportlink + 'XML'
                 return newlink, outputs
-
+            
+            elif 'PDF' in outputs:
+                relpage = [s for s in pg_text_split if 'ExportUrlBase' in s][0]
+                relpage = relpage.replace('\\u0026', '&')
+                linkstart = re.search('ExportUrlBase', relpage).start(0) + 17
+                linkend = re.search('FixedTableId', relpage).start(0) - 3
+                exportlink = relpage[linkstart:linkend]
+                newlink = self.linkbase + exportlink + 'PDF'
+                return newlink, outputs                
+            
             elif 'Excel' in outputs:
                 wrnstr = 'No XML export allowed from report server. Use direct excel download function.'
 
-            elif 'CSV (comma delimited)' in outputs:
+            elif 'CSV (delimitado por comas)' in outputs:
                 wrnstr = 'No XML/Excel export allowed from report server. Use direct csv download function.'
-
+            
             else:
                 wrnstr = 'Report Server does not allow usable data export methods. Update server settings/version to enable XML, Excel, or CSV export.'
 
@@ -99,10 +114,8 @@ class report(object):
 
     def rawdata(self):
         """Retrieve raw report XML data as a dictionary
-
         Useful in the case of special reports which may contain graphs, 
         unstructured information, or other inconsistencies. 
-
         Returns
         -------
         dict
@@ -117,12 +130,12 @@ class report(object):
         if self.exportlink is None:
             raise ValueError('No valid export link available.')
 
-        session = requests.session()
-        session.auth = HttpNtlmAuth(self.username,
+        self.session = requests.session()
+        self.session.auth = HttpNtlmAuth(self.username,
                                     self.password,
-                                    session)
+                                    self.session)
 
-        pg = session.get(self.exportlink)
+        pg = self.session.get(self.exportlink)
         pg_txt = pg.text[search('<', pg.text).start():]
         pg_xml = xmltodict.parse(pg_txt)
         self.reportname = pg_xml['Report']['@Name']
@@ -132,12 +145,10 @@ class report(object):
 
     def tabledata(self, guessdatatypes=True):
         """Retrieve only table data from XML
-
         Returns
         -------
         dict
             Dictionary of pandas DataFrame objects
-
         """
         from pandas import DataFrame, to_numeric, to_datetime
         from re import search
@@ -173,9 +184,8 @@ class report(object):
                     'Table ' + t + ' detected with no data, skipping.')
         return datadict
 
-    def download(self, exportformat='CSV', path=None):
+    def download(self, exportformat='CSV', filename=None, path=None):
         """
-
         Parameters
         ----------
         exportformat : str
@@ -184,22 +194,18 @@ class report(object):
             format <reportname>__<tableobjname>.<ext>. For excel files, 
             the workbook is titled <reportname>.xlsx, and the sheets within 
             are titled by table object name. 
-
         Returns
         -------
         list
             The list of files/sheets that were successfully written
-
         """
         from os import path
         from pandas import DataFrame
         exportformat = exportformat.upper()
-        allowedformats = ['CSV', 'JSON', 'EXCEL']
+        allowedformats = ['CSV', 'JSON', 'EXCEL', 'PDF']
 
         if exportformat not in allowedformats:
             raise ValueError('Format not in allowed types.')
-
-        data = self.tabledata()
 
         def filever(fname):
             if not path.exists(fname):
@@ -214,11 +220,26 @@ class report(object):
                     else:
                         i += 1
 
-        basename = filever(self.reportname)
+        if filename == None:
+            basename = filever(self.reportname)
+        else:
+            basename = filename
 
         files = []
 
-        if exportformat != 'EXCEL':
+        if exportformat == 'PDF':
+            if self.parameters:
+                r = self.session.post(self.exportlink, self.post_data)
+            else:
+                r = self.session.post(self.exportlink)
+            if r.status_code == 200:
+                with open(basename, 'wb') as out:
+                    for bits in r.iter_content():
+                        out.write(bits)
+            files.append(basename)
+            
+        elif exportformat != 'EXCEL':
+            data = self.tabledata()
             for dskey in self.tables:
                 dataset = data[dskey]
                 if exportformat == 'CSV':
@@ -230,8 +251,9 @@ class report(object):
                     dataset.to_json(exportdest)
                     files += [exportdest]
                 else:
-                    pass
+                    pass        
         else:
+            data = self.tabledata()
             from pandas import ExcelWriter, DataFrame
             writer = ExcelWriter(filever(basename + '.xlsx'))
             for dskey in self.tables:
@@ -245,3 +267,32 @@ class report(object):
 
     def directdown(self, type='EXCELOPENXML'):
         return type
+
+    def get_data_to_post(self):
+        r = self.session.get(self.link)
+        soup = bs4.BeautifulSoup(r.content, "html.parser")
+        inputs = soup.find_all("input")
+        key_by_name = {}
+        name_by_key = {}
+        post_data = {}
+
+        for i in inputs:            
+            post_data[i.attrs['name']] = i.attrs.get('value')
+            
+            if i.attrs['name'].endswith("txtValue"):
+                # En caso de que sea un txt input
+                span = i.findPrevious('span')
+                key = span.text
+                key_by_name[i.attrs["name"]] = key
+                name_by_key[key] = i.attrs["name"]
+                                
+        for k,v in self.parameters.items():
+            post_data[name_by_key[k]] = v
+
+        self.post_data = post_data
+        return post_data
+
+    def post_to_get_page(self, data=None):
+        if data:
+            return self.session.post(self.link, data)        
+        return self.session.post(self.link, self.get_data_to_post())
