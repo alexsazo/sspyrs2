@@ -184,7 +184,7 @@ class report(object):
                     'Table ' + t + ' detected with no data, skipping.')
         return datadict
 
-    def download(self, exportformat='CSV', filename=None, path=None):
+    def download(self, exportformat='CSV', filename=None, path=None, as_response=False):
         """
         Parameters
         ----------
@@ -194,6 +194,10 @@ class report(object):
             format <reportname>__<tableobjname>.<ext>. For excel files, 
             the workbook is titled <reportname>.xlsx, and the sheets within 
             are titled by table object name. 
+        as_response : Boolean
+            When as_response==True the file list returned comes with the 
+            correponding response of the downloaded file. Only works when
+            exportformat=='PDF'.
         Returns
         -------
         list
@@ -262,7 +266,10 @@ class report(object):
                 files += [dskey]
             writer.save()
 
-        return files
+        if exportformat == 'PDF' and as_response == True:
+            return files, r
+        else:
+            return files
 
 
     def directdown(self, type='EXCELOPENXML'):

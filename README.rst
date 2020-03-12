@@ -1,21 +1,31 @@
+Changelog
+=========
+
+#### V1.0.2
+- Added <as_response> parameter to download method.
+- README.rst updated.
+
+
 SSPYRS2
-======
-Take SSPYRS from jknix/sspyrs and add support for:
-    1. Download reports with parameters
-    2. Download PDF reports.
+=======
+
+This package take the sspyrs package from jknix/sspyrs (github) and add support for:
+------------------------------------------------------------------------------------
+1. Download reports with parameters (improve corrections)
+2. Download PDF reports.
     
 All the other things are the same.
 
-The SSPYRS (SQL Server Python Reporting Services) library is a lightweight interface for interacting with and retrieving data from SSRS reports. The core functionality of the library is straightforward. Perform authentication to an SSRS server, initialize a session, and then retrieve the report data from that session. Report data can be interacted with via raw XML, but has predefined methods to organize it into Pandas DataFrame objects.
+The SSPYRS2 (SQL Server Python Reporting Services) library is a lightweight interface for interacting with and retrieving data from SSRS reports. The core functionality of the library is straightforward. Perform authentication to an SSRS server, initialize a session, and then retrieve the report data from that session. Report data can be interacted with via raw XML, but has predefined methods to organize it into Pandas DataFrame objects.
 
 
-The SSPYRS library works primarily from the XML export functionality of SSRS. However, this neither XML nor CSV exports are provided in the free express versions of SQL Server (they are available within the currently free developer editions of SQL Server 2017). The library does include direct download functions for the Excel export included in the express version, however it will not read the data directly into memory.
+The SSPYRS2 library works primarily from the XML export functionality of SSRS. However, this neither XML nor CSV exports are provided in the free express versions of SQL Server (they are available within the currently free developer editions of SQL Server 2017). The library does include direct download functions for the Excel export included in the express version, however it will not read the data directly into memory.
 
-SSPYRS has been validated to work with SSRS 2008 R2, SSRS 2014, and SSRS 2016, SSRS 2017, and PowerBI Server 2017 under most server settings.
+SSPYRS2 has been validated to work with SSRS 2008 R2, SSRS 2014, and SSRS 2016, SSRS 2017, and PowerBI Server 2017 under most server settings.
 
-To install SSPYRS, execute in console::
+To install SSPYRS2, execute in console::
 
-    pip install sspyrs
+    pip install sspyrs2
 
 
 Usage and Documentation
@@ -26,8 +36,8 @@ Report Objects
 
 A report object can be initialized as follows::
 
-    import sspyrs
-    myrpt = sspyrs.report('http://myreportserver/report',
+    import sspyrs2
+    myrpt = sspyrs2.report('http://myreportserver/report',
                            myusername,
                            pass)
 

@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='sspyrs2',
-      version='1.0',
+      version='1.0.2',
       description='Alternative version of sspyrs that is a lightweight interface for SSRS reports to python.',
       long_description=open('README.rst').read(),
       url='https://pypi.python.org/pypi/sspyrs2',
